@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request, send_from_directory
+from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
 
@@ -61,6 +62,10 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
 
+def is_api_request() -> bool:
+    return request.path.startswith("/api/")
+
+
 @app.route("/")
 def index():
     return render_template("index.html", supported_formats=", ".join(sorted(ALLOWED_EXTENSIONS)).upper())
@@ -82,6 +87,20 @@ def get_materials():
 
     materials.sort(key=lambda item: item["uploaded_at"], reverse=True)
     return jsonify(materials)
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def handle_file_too_large(_error):
+    if is_api_request():
+        return jsonify({"error": "Файл слишком большой. Максимальный размер: 50 МБ."}), 413
+    return "Файл слишком большой. Максимальный размер: 50 МБ.", 413
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    if is_api_request():
+        return jsonify({"error": f"Ошибка сервера при загрузке файла: {error}"}), 500
+    raise error
 
 
 @app.post("/api/materials")

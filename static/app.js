@@ -3,6 +3,7 @@ const resultsMetaNode = document.getElementById("results-meta");
 const searchForm = document.getElementById("search-form");
 const uploadForm = document.getElementById("upload-form");
 const uploadStatusNode = document.getElementById("upload-status");
+const uploadButton = uploadForm.querySelector('button[type="submit"]');
 
 function escapeHtml(value) {
   return value
@@ -51,6 +52,11 @@ async function loadMaterials(query = "") {
   resultsMetaNode.textContent = "Загрузка материалов...";
   const url = query ? `/api/materials?q=${encodeURIComponent(query)}` : "/api/materials";
   const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error("Не удалось получить список материалов.");
+  }
+
   const materials = await response.json();
   resultsMetaNode.textContent = `Найдено материалов: ${materials.length}`;
   renderMaterials(materials);
@@ -65,23 +71,33 @@ searchForm.addEventListener("submit", async (event) => {
 uploadForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   uploadStatusNode.textContent = "Файл загружается...";
+  uploadButton.disabled = true;
 
-  const formData = new FormData(uploadForm);
-  const response = await fetch("/api/materials", {
-    method: "POST",
-    body: formData,
-  });
+  try {
+    const formData = new FormData(uploadForm);
+    const response = await fetch("/api/materials", {
+      method: "POST",
+      body: formData,
+    });
 
-  const payload = await response.json();
+    const contentType = response.headers.get("content-type") || "";
+    const payload = contentType.includes("application/json")
+      ? await response.json()
+      : { error: await response.text() };
 
-  if (!response.ok) {
-    uploadStatusNode.textContent = payload.error || "Не удалось загрузить файл.";
-    return;
+    if (!response.ok) {
+      uploadStatusNode.textContent = payload.error || "Не удалось загрузить файл.";
+      return;
+    }
+
+    uploadStatusNode.textContent = "Материал успешно загружен.";
+    uploadForm.reset();
+    await loadMaterials(searchForm.querySelector("input").value.trim());
+  } catch (_error) {
+    uploadStatusNode.textContent = "Ошибка соединения при загрузке файла. Проверьте сервер и попробуйте снова.";
+  } finally {
+    uploadButton.disabled = false;
   }
-
-  uploadStatusNode.textContent = "Материал успешно загружен.";
-  uploadForm.reset();
-  await loadMaterials(searchForm.querySelector("input").value.trim());
 });
 
 loadMaterials().catch(() => {
