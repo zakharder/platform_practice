@@ -108,8 +108,10 @@ h1 {
 }
 
 h2 {
-  font-size: clamp(1.8rem, 3vw, 3rem);
-  max-width: 10ch;
+  font-size: clamp(2.1rem, 4.1vw, 4.2rem);
+  max-width: 14ch;
+  line-height: 1.05;
+  text-wrap: balance;
 }
 
 .lead {
@@ -122,6 +124,10 @@ h2 {
 .hero__content {
   grid-template-columns: 1.6fr 1fr;
   align-items: end;
+}
+
+.hero__text {
+  max-width: 760px;
 }
 
 .hero__card {
