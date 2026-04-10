@@ -121,9 +121,11 @@ def upload_material():
 
     ensure_storage()
 
-    safe_name = secure_filename(uploaded_file.filename)
+    original_name = uploaded_file.filename.strip()
+    extension = original_name.rsplit(".", 1)[1].lower()
+    safe_name = secure_filename(original_name)
+    display_name = safe_name or original_name
     material_id = str(uuid.uuid4())
-    extension = safe_name.rsplit(".", 1)[1].lower()
     stored_name = f"{material_id}.{extension}"
     uploaded_file.save(UPLOADS_DIR / stored_name)
 
@@ -133,7 +135,7 @@ def upload_material():
         "title": title,
         "description": description,
         "tags": tags,
-        "original_filename": safe_name,
+        "original_filename": display_name,
         "stored_filename": stored_name,
         "extension": extension.upper(),
         "download_url": f"/downloads/{stored_name}",
