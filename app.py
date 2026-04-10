@@ -11,8 +11,9 @@ from werkzeug.utils import secure_filename
 
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-UPLOADS_DIR = BASE_DIR / "uploads"
+STORAGE_DIR = Path(os.environ.get("STORAGE_DIR", str(BASE_DIR))).resolve()
+DATA_DIR = STORAGE_DIR / "data"
+UPLOADS_DIR = STORAGE_DIR / "uploads"
 MATERIALS_FILE = DATA_DIR / "materials.json"
 
 ALLOWED_EXTENSIONS = {
