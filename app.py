@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import sqlite3
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -14,7 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent
 STORAGE_DIR = Path(os.environ.get("STORAGE_DIR", str(BASE_DIR))).resolve()
 DATA_DIR = STORAGE_DIR / "data"
 UPLOADS_DIR = STORAGE_DIR / "uploads"
-MATERIALS_FILE = DATA_DIR / "materials.json"
+DATABASE_FILE = DATA_DIR / "materials.db"
 
 ALLOWED_EXTENSIONS = {
     "pdf",
@@ -32,23 +33,105 @@ ALLOWED_EXTENSIONS = {
 def ensure_storage() -> None:
     DATA_DIR.mkdir(exist_ok=True)
     UPLOADS_DIR.mkdir(exist_ok=True)
-    if not MATERIALS_FILE.exists():
-        MATERIALS_FILE.write_text("[]", encoding="utf-8")
+    with get_db_connection() as connection:
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS materials (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                tags TEXT NOT NULL DEFAULT '[]',
+                original_filename TEXT NOT NULL,
+                stored_filename TEXT NOT NULL,
+                extension TEXT NOT NULL,
+                uploaded_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.commit()
 
 
-def load_materials():
+def get_db_connection() -> sqlite3.Connection:
+    connection = sqlite3.connect(DATABASE_FILE)
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
+def row_to_material(row: sqlite3.Row) -> dict:
+    return {
+        "id": row["id"],
+        "title": row["title"],
+        "description": row["description"],
+        "tags": json.loads(row["tags"]),
+        "original_filename": row["original_filename"],
+        "stored_filename": row["stored_filename"],
+        "extension": row["extension"],
+        "download_url": f"/downloads/{row['stored_filename']}",
+        "uploaded_at": row["uploaded_at"],
+    }
+
+
+def load_materials(query: str = "") -> list[dict]:
     ensure_storage()
-    try:
-        return json.loads(MATERIALS_FILE.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return []
+    sql = """
+        SELECT
+            id,
+            title,
+            description,
+            tags,
+            original_filename,
+            stored_filename,
+            extension,
+            uploaded_at
+        FROM materials
+    """
+    params: list[str] = []
+
+    if query:
+        like_query = f"%{query}%"
+        sql += """
+            WHERE lower(title) LIKE ?
+            OR lower(description) LIKE ?
+            OR lower(tags) LIKE ?
+        """
+        params.extend([like_query, like_query, like_query])
+
+    sql += " ORDER BY uploaded_at DESC"
+
+    with get_db_connection() as connection:
+        rows = connection.execute(sql, params).fetchall()
+
+    return [row_to_material(row) for row in rows]
 
 
-def save_materials(materials) -> None:
-    MATERIALS_FILE.write_text(
-        json.dumps(materials, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+def save_material(material: dict) -> None:
+    ensure_storage()
+    with get_db_connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO materials (
+                id,
+                title,
+                description,
+                tags,
+                original_filename,
+                stored_filename,
+                extension,
+                uploaded_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                material["id"],
+                material["title"],
+                material["description"],
+                json.dumps(material["tags"], ensure_ascii=False),
+                material["original_filename"],
+                material["stored_filename"],
+                material["extension"],
+                material["uploaded_at"],
+            ),
+        )
+        connection.commit()
 
 
 def allowed_file(filename: str) -> bool:
@@ -75,19 +158,7 @@ def index():
 @app.get("/api/materials")
 def get_materials():
     query = normalize_query(request.args.get("q", ""))
-    materials = load_materials()
-
-    if query:
-        materials = [
-            item
-            for item in materials
-            if query in normalize_query(item["title"])
-            or query in normalize_query(item.get("description", ""))
-            or any(query in normalize_query(tag) for tag in item.get("tags", []))
-        ]
-
-    materials.sort(key=lambda item: item["uploaded_at"], reverse=True)
-    return jsonify(materials)
+    return jsonify(load_materials(query))
 
 
 @app.errorhandler(RequestEntityTooLarge)
@@ -130,7 +201,6 @@ def upload_material():
     stored_name = f"{material_id}.{extension}"
     uploaded_file.save(UPLOADS_DIR / stored_name)
 
-    materials = load_materials()
     material = {
         "id": material_id,
         "title": title,
@@ -142,8 +212,7 @@ def upload_material():
         "download_url": f"/downloads/{stored_name}",
         "uploaded_at": datetime.utcnow().isoformat(),
     }
-    materials.append(material)
-    save_materials(materials)
+    save_material(material)
 
     return jsonify(material), 201
 
