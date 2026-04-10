@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduShelf | Учебные материалы онлайн</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Prata&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="hero__brand">
+        <div class="logo-mark">ES</div>
+        <div>
+          <p class="eyebrow">Платформа учебных материалов</p>
+          <h1>EduShelf</h1>
+        </div>
+      </div>
+      <div class="hero__content">
+        <div class="hero__text">
+          <p class="welcome">Добро пожаловать</p>
+          <h2>Преподаватели загружают пособия, студенты быстро находят и скачивают нужные материалы.</h2>
+        </div>
+        <div class="hero__card">
+          <p>Что умеет платформа</p>
+          <ul>
+            <li>загрузка файлов преподавателями</li>
+            <li>поиск по названию, описанию и тегам</li>
+            <li>скачивание материалов в один клик</li>
+          </ul>
+        </div>
+      </div>
+    </header>
+
+    <main class="content-grid">
+      <section class="panel panel--search">
+        <div class="section-heading">
+          <p class="section-kicker">Поиск материалов</p>
+          <h3>Найдите нужное пособие по ключевым словам</h3>
+        </div>
+        <form id="search-form" class="search-form">
+          <label class="sr-only" for="search-input">Поиск материалов</label>
+          <input id="search-input" name="q" type="search" placeholder="Например: алгебра, история, методичка">
+          <button type="submit">Искать</button>
+        </form>
+        <div id="results-meta" class="results-meta">Загрузка материалов...</div>
+        <div id="results" class="results"></div>
+      </section>
+
+      <section class="panel panel--upload">
+        <div class="section-heading">
+          <p class="section-kicker">Загрузка материалов</p>
+          <h3>Добавьте новый файл на платформу</h3>
+        </div>
+        <form id="upload-form" class="upload-form">
+          <label>
+            Название материала
+            <input type="text" name="title" placeholder="Например: Лекции по физике" required>
+          </label>
+          <label>
+            Описание
+            <textarea name="description" rows="4" placeholder="Кратко опишите содержание файла"></textarea>
+          </label>
+          <label>
+            Ключевые слова
+            <input type="text" name="tags" placeholder="физика, лекции, 1 курс">
+          </label>
+          <label>
+            Выбрать файл
+            <input type="file" name="file" required>
+          </label>
+          <div class="formats-box">
+            <span>Поддерживаемые форматы:</span>
+            <strong>{{ supported_formats }}</strong>
+          </div>
+          <button type="submit" class="upload-button">Загрузить</button>
+        </form>
+        <p id="upload-status" class="status-message" aria-live="polite"></p>
+      </section>
+    </main>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
